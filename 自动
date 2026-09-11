@@ -1,0 +1,693 @@
+#include <stdlib.h>
+#include "RCatfxSeiqkSQL.h"
+#include "RCatfxUtil.h"
+#include <string>
+#include <sstream>
+
+EXEC SQL INCLUDE sqlca.h;
+EXEC SQL INCLUDE oraca.h;
+
+EXEC SQL BEGIN DECLARE SECTION;
+EXEC SQL INCLUDE RCatfxSeiqkSQLBind.h;
+EXEC SQL END DECLARE SECTION;
+
+// スタティック変数初期化
+
+const	int 	RCatfxSeiqkSQL::CURSOR_STATUS_CLOSE		= 0;									// カーソルクローズ状態
+const	int 	RCatfxSeiqkSQL::CURSOR_STATUS_OPEN		= 1;									// カーソルオープン状態
+const	int 	RCatfxSeiqkSQL::iSQLCODE_NOTFOUND		= 1403;									// SQLCODE データなし
+
+using namespace REcomn;					// 共通関数名前空間 
+
+//***************************************************************************
+// 機能		: コンストラクタ												
+// 																			
+// 返り値	:																
+// 																			
+// 引き数	:																
+// 																			
+// 機能説明	:																
+// 																			
+// 備考		:																
+// 																			
+//***************************************************************************
+RCatfxSeiqkSQL::RCatfxSeiqkSQL()
+{
+}
+
+//***************************************************************************
+// 機能		: コンストラクタ												
+// 																			
+// 返り値	:																
+// 																			
+// 引き数	:																
+// 																			
+// 機能説明	:																
+// 																			
+// 備考		:																
+// 																			
+//***************************************************************************
+RCatfxSeiqkSQL::RCatfxSeiqkSQL(const string strKenCD, const string strTenKbn)
+{
+	this->prt_strKenCD = strKenCD;
+	this->prt_strTenKbn = strTenKbn;
+	RCatfxSeiqkDataIn = new RCatfxSeiqkData();
+	RCatfxSeiqkDataOut = new RCatfxSeiqkData();
+
+}
+//***************************************************************************
+// 機能		: コンストラクタ												
+// 																			
+// 返り値	:																
+// 																			
+// 引き数	:																
+// 																			
+// 機能説明	:																
+// 																			
+// 備考		:																
+// 																			
+//***************************************************************************
+RCatfxSeiqkSQL::RCatfxSeiqkSQL(const string strKenCD, const string strTenKbn, const string strAtfxDay)
+{
+	this->prt_strKenCD = strKenCD;
+	this->prt_strTenKbn = strTenKbn;
+	this->prt_strAtfxDay = strAtfxDay;
+	RCatfxSeiqkDataIn = new RCatfxSeiqkData();
+	RCatfxSeiqkDataOut = new RCatfxSeiqkData();
+
+}
+
+//***************************************************************************
+// 機能		: デストラクタ													
+// 																			
+// 返り値	:																
+// 																			
+// 引き数	:																
+// 																			
+// 機能説明	:																
+// 																			
+// 備考		:																
+// 																			
+//***************************************************************************
+RCatfxSeiqkSQL::~RCatfxSeiqkSQL()
+{
+	delete RCatfxSeiqkDataIn, RCatfxSeiqkDataIn = NULL;
+	delete RCatfxSeiqkDataOut, RCatfxSeiqkDataOut = NULL;
+
+}
+
+//***************************************************************************
+// 機能		:	INデータインスタンス取得
+//																			
+// 返り値	:	void*
+//																			
+// 機能説明	:	INデータインスタンスを取得する
+//																			
+//***************************************************************************
+void*	RCatfxSeiqkSQL::getInstanceDataIn()
+{
+	return (void*)RCatfxSeiqkDataIn;
+}
+//***************************************************************************
+// 機能		:	OUTデータインスタンス取得
+//																			
+// 返り値	:	void*
+//																			
+// 機能説明	:	OUTデータインスタンスを取得する
+//																			
+//***************************************************************************
+void*	RCatfxSeiqkSQL::getInstanceDataOut()
+{
+	return (void*)RCatfxSeiqkDataOut;
+}
+
+//***************************************************************************
+// 機能		:	UpdateAutokakuteiFlagON
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	自動請求確定フラグ更新
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::UpdateAutokakuteiFlagON()
+{
+	string strsql = "";
+
+	strsql.append(" UPDATE " );
+	strsql.append("  RE" + prt_strTenKbn + "HUSER" + prt_strKenCD + "." );
+	strsql.append("R" + prt_strTenKbn + "Seiqk" );
+	strsql.append("  SET AUTOKAKUTEIFLAG = '1' " );
+	strsql.append("  WHERE " );
+	strsql.append("   STATUS IN ('00', '10', '11')" );
+
+	memset(szSQL, '\0', sizeof(szSQL));
+	memcpy(szSQL, (char*)strsql.c_str(), strsql.length());
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+	EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+	EXEC SQL PREPARE sql_stmt FROM :szSQL;
+	EXEC SQL EXECUTE sql_stmt;
+
+	if (0 != sqlca.sqlcode && 1403 != sqlca.sqlcode){
+		// UPDATE失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E009, "RCatfxSeiqkSQL::UpdateAutokakuteiFlagON " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+}
+
+//***************************************************************************
+// 機能		:	AutoKakuteiCount
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	自動請求確定対象のレコード数を取得
+//																			
+//***************************************************************************
+int		RCatfxSeiqkSQL::AutoKakuteiCount()
+{
+	EXEC SQL BEGIN DECLARE SECTION;
+		int		idbRecCount = 0;					// レコード数
+	EXEC SQL END DECLARE SECTION;
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+	EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+	string strsql = "";
+
+	strsql.append(" SELECT " );
+	strsql.append("     COUNT(HCODE) " );
+	strsql.append(" FROM " );
+	strsql.append("  RE" + prt_strTenKbn + "HUSER" + prt_strKenCD + "." );
+	strsql.append("R" + prt_strTenKbn + "Seiqk" );
+	strsql.append("  WHERE " );
+	strsql.append("   AUTOKAKUTEIFLAG = '1'" );
+	strsql.append("   AND STATUS IN ('00', '10', '11')" );
+
+	memset(szSQL, '\0', sizeof(szSQL));
+	memcpy(szSQL, (char*)strsql.c_str(), strsql.length());
+
+	EXEC SQL PREPARE sql_stmt FROM :szSQL;
+	EXEC SQL DECLARE autokakuteicount_cursor CURSOR FOR sql_stmt;
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	// カーソルオープン
+	EXEC SQL
+			OPEN autokakuteicount_cursor;
+
+	if (0 != sqlca.sqlcode){
+		// OPEN失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E005, "RCatfxSeiqkSQL::AutoKakuteiCount Open " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER NOTFOUND CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	// カーソルフェッチ
+	EXEC SQL
+		FETCH autokakuteicount_cursor INTO
+			 :idbRecCount
+	;
+
+	if (0 != sqlca.sqlcode){
+		// FETCH失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E007, "RCatfxSeiqkSQL::AutoKakuteiCount Select " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+
+	// カーソルクローズ
+	EXEC SQL
+			Close autokakuteicount_cursor;
+
+	if (0 != sqlca.sqlcode){
+		// CLOSE失敗
+		CREcomnDB::pvtSetErrInfo();
+		CREcomnLog::s_pszErrFuncName = (char*)string("RCatfxSeiqkSQL::AutoKakuteiCount Close " + getSqlErrMsg(sqlca.sqlcode)).c_str();
+		CREcomnLog::LogOut("          ", "RCatfx", RECOMN_C004);
+	}
+
+	return idbRecCount;
+}
+
+
+//***************************************************************************
+// 機能		:	OpenSeiqk
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	請求管理カーソルオープン
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::OpenSeiqk()
+{
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	string strsql = "";
+
+	strsql.append(" SELECT " );
+	strsql.append("   Hcode " );
+	strsql.append("  ,Sosinkai " );
+	strsql.append("  ,Svrname " );
+	strsql.append("  ,Aspflg " );
+	strsql.append("  ,Jdaikocode " );
+	strsql.append("  ,Upduserid " );
+	strsql.append(" FROM " );
+	strsql.append("  RE" + prt_strTenKbn + "HUSER" + prt_strKenCD + "." );
+	strsql.append("R" + prt_strTenKbn + "Seiqk" );
+	strsql.append("  WHERE " );
+	strsql.append("   STATUS = '11'" );
+	strsql.append("   AND AUTOKAKUTEIFLAG = '1'" );
+	strsql.append("  ORDER BY SOSINCDATE" );
+
+	memset(szSQL, '\0', sizeof(szSQL));
+	memcpy(szSQL, (char*)strsql.c_str(), strsql.length());
+
+	// SQL構文解析
+	EXEC SQL PREPARE stmt_seiqk FROM :szSQL;
+
+	// カーソル宣言
+	EXEC SQL DECLARE seiqk_cursor CURSOR FOR stmt_seiqk;
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	// カーソルオープン
+	EXEC SQL OPEN seiqk_cursor;
+
+	if (0 != sqlca.sqlcode){
+		// OPEN失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E005, "RCatfxSeiqkSQL::OpenSeiqk " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+}
+
+//***************************************************************************
+// 機能		:	SelectSeiqk
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	請求管理レコードを検索する
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::SelectSeiqk()
+{
+	this->ClearOut();
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER NOTFOUND CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	// フェッチ
+	EXEC SQL FETCH seiqk_cursor INTO
+			 :szdbOutHcode:sHcode
+			,:idbOutSosinkai:sSosinkai
+			,:szdbOutSvrname:sSvrname
+			,:szdbOutAspflg:sAspflg
+			,:szdbOutJdaikocode:sJdaikocode
+			,:szdbOutUpduserid:sUpduserid
+	;
+
+	if (0 != sqlca.sqlcode && iSQLCODE_NOTFOUND != sqlca.sqlcode){
+		// フェッチ失敗の場合
+		CREcomnDB::pvtSetErrInfo();
+		//   REKMSG_E007 : カーソルフェッチエラー
+		throw new RCatfxLogger(REKMSG_E007, "RCatfxSeiqkSQL::SelectSeiqk " + RCatfxSeiqkSQL::getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+
+	if (0 > sJdaikocode){
+		memset(szdbOutJdaikocode, '\0', sizeof(szdbOutJdaikocode));
+	}
+
+	RCatfxSeiqkDataOut->set_Hcode(string(szdbOutHcode));
+	RCatfxSeiqkDataOut->set_Sosinkai(idbOutSosinkai);
+	RCatfxSeiqkDataOut->set_Svrname(string(szdbOutSvrname));
+	RCatfxSeiqkDataOut->set_Aspflg(string(szdbOutAspflg));
+	RCatfxSeiqkDataOut->set_Jdaikocode(string(szdbOutJdaikocode));
+	RCatfxSeiqkDataOut->set_Upduserid(string(szdbOutUpduserid));
+}
+
+//***************************************************************************
+// 機能		:	CloseSeiqk
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	請求管理カーソルクローズ
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::CloseSeiqk()
+{
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	EXEC SQL
+			Close seiqk_cursor;
+
+	if (0 != sqlca.sqlcode){
+		// CLOSE失敗
+		CREcomnDB::pvtSetErrInfo();
+		CREcomnLog::s_pszErrFuncName = (char*)string("RCatfxSeiqkSQL::CloseSeiqk " + RCatfxSeiqkSQL::getSqlErrMsg(sqlca.sqlcode)).c_str();
+		CREcomnLog::LogOut("          ", "RCatfx", RECOMN_C004);
+	}
+}
+
+//***************************************************************************
+// 機能		:	UpdateSeiqk
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	請求管理テーブルステータス更新
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::UpdateSeiqk()
+{
+	this->ClearIn();
+
+	memcpy(szdbInStatus, (char*)RCatfxSeiqkDataIn->get_Status().c_str(), sizeof(szdbInStatus) - 1);
+	memcpy(szdbInSeiqkakuteikbn, (char*)RCatfxSeiqkDataIn->get_Seiqkakuteikbn().c_str(), sizeof(szdbInSeiqkakuteikbn) - 1);
+	memcpy(szdbInUpduserid, (char*)RCatfxSeiqkDataIn->get_Upduserid().c_str(), sizeof(szdbInUpduserid) - 1);
+	memcpy(szdbInHcode, (char*)RCatfxSeiqkDataIn->get_Hcode().c_str(), sizeof(szdbInHcode) - 1);
+	idbInSosinkai = atoi((char*)RCatfxSeiqkDataIn->get_Sosinkai().c_str());
+
+	string strsql = "";
+
+	strsql.append(" UPDATE " );
+	strsql.append("  RE" + prt_strTenKbn + "HUSER" + prt_strKenCD + "." );
+	strsql.append("R" + prt_strTenKbn + "Seiqk" );
+	strsql.append("  SET STATUS = :szdbInStatus " );
+	strsql.append("     ,SEIQKAKUTEIKBN = :szdbInSeiqkakuteikbn " );
+	strsql.append("     ,SEIQKAKUTEIDATE = TO_DATE(TO_CHAR(SYSDATE,'YYYYMM') || '" + prt_strAtfxDay + "235959', 'YYYYMMDDHH24MISS') " );
+	strsql.append("     ,UPDUSERID = DECODE( " );
+	strsql.append("          INSTR(UPDUSERID,'SeiSien'), " );
+	strsql.append("          1,UPDUSERID, " );
+	strsql.append("          :szdbInUpduserid " );
+	strsql.append("       ) " );
+	strsql.append("  WHERE " );
+	strsql.append("   HCODE =:szdbInHcode" );
+	strsql.append("   AND SOSINKAI = :idbInSosinkai" );
+
+	memset(szSQL, '\0', sizeof(szSQL));
+	memcpy(szSQL, (char*)strsql.c_str(), strsql.length());
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+	EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+	EXEC SQL PREPARE sql_stmt FROM :szSQL;
+	EXEC SQL EXECUTE sql_stmt using 
+							 :szdbInStatus
+							,:szdbInSeiqkakuteikbn
+							,:szdbInUpduserid
+							,:szdbInHcode
+							,:idbInSosinkai
+	;
+
+	if (0 != sqlca.sqlcode){
+		// UPDATE失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E009, "RCatfxSeiqkSQL::UpdateSeiqk " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+	
+}
+
+//***************************************************************************
+// 機能		:	AutoKakuteiOFFCountCheck
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	自動請求確定不可かどうかチェックする
+//																			
+//***************************************************************************
+int		RCatfxSeiqkSQL::AutoKakuteiOFFCountCheck()
+{
+	EXEC SQL BEGIN DECLARE SECTION;
+		int		idbRecCount;						// レコード数
+	EXEC SQL END DECLARE SECTION;
+
+	this->ClearIn();
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+	EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+	memcpy(szdbInHcode, (char*)RCatfxSeiqkDataIn->get_Hcode().c_str(), sizeof(szdbInHcode) - 1);
+	idbInSosinkai = atoi((char*)RCatfxSeiqkDataIn->get_Sosinkai().c_str());
+
+	string strsql = "";
+
+	strsql.append(" SELECT " );
+	strsql.append("     COUNT(HCODE) " );
+	strsql.append(" FROM " );
+	strsql.append("  RE" + prt_strTenKbn + "HUSER" + prt_strKenCD + "." );
+	strsql.append("R" + prt_strTenKbn + "Seiqk" );
+	strsql.append("  WHERE " );
+	strsql.append("   HCODE =:szdbInHcode" );
+	strsql.append("   AND SOSINKAI < :idbInSosinkai" );
+	strsql.append("   AND STATUS >= '20' " );
+	strsql.append("   AND STATUS <> '99' " );
+
+	memset(szSQL, '\0', sizeof(szSQL));
+	memcpy(szSQL, (char*)strsql.c_str(), strsql.length());
+
+	EXEC SQL PREPARE sql_stmt FROM :szSQL;
+	EXEC SQL DECLARE autokakuteioffcountcheck_cursor CURSOR FOR sql_stmt;
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	// カーソルオープン
+	EXEC SQL
+		OPEN autokakuteioffcountcheck_cursor using
+			 :szdbInHcode
+			,:idbInSosinkai
+	;
+
+	if (0 != sqlca.sqlcode){
+		// OPEN失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E005, "RCatfxSeiqkSQL::AutoKakuteiOFFCountCheck Open " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER NOTFOUND CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+
+	// カーソルフェッチ
+	EXEC SQL
+		FETCH autokakuteioffcountcheck_cursor INTO
+			 :idbRecCount
+	;
+
+	if (0 != sqlca.sqlcode){
+		// FETCH失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E007, "RCatfxSeiqkSQL::AutoKakuteiOFFCountCheck Select " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+
+	// カーソルクローズ
+	EXEC SQL
+			Close autokakuteioffcountcheck_cursor;
+
+	if (0 != sqlca.sqlcode){
+		// CLOSE失敗
+		CREcomnDB::pvtSetErrInfo();
+		CREcomnLog::s_pszErrFuncName = (char*)string("RCatfxSeiqkSQL::AutoKakuteiOFFCountCheck Close " + getSqlErrMsg(sqlca.sqlcode)).c_str();
+		CREcomnLog::LogOut("          ", "RCatfx", RECOMN_C004);
+	}
+
+	return idbRecCount;
+}
+
+//***************************************************************************
+// 機能		:	UpdateAutokakuteiflagOFF
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	自動請求確定フラグを自動請求確定対象外に更新
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::UpdateAutokakuteiflagOFF()
+{
+	this->ClearIn();
+
+	memcpy(szdbInHcode, (char*)RCatfxSeiqkDataIn->get_Hcode().c_str(), sizeof(szdbInHcode) - 1);
+
+	string strsql = "";
+
+	strsql.append(" UPDATE " );
+	strsql.append("  RE" + prt_strTenKbn + "HUSER" + prt_strKenCD + "." );
+	strsql.append("R" + prt_strTenKbn + "Seiqk" );
+	strsql.append("  SET AUTOKAKUTEIFLAG = '0' " );
+	strsql.append("  WHERE " );
+	strsql.append("   HCODE =:szdbInHcode" );
+	strsql.append("   AND AUTOKAKUTEIFLAG = '2'" );
+
+	memset(szSQL, '\0', sizeof(szSQL));
+	memcpy(szSQL, (char*)strsql.c_str(), strsql.length());
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+	EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+	EXEC SQL PREPARE sql_stmt FROM :szSQL;
+	EXEC SQL EXECUTE sql_stmt using 
+							 :szdbInHcode
+	;
+
+	if (0 != sqlca.sqlcode && 1403 != sqlca.sqlcode){
+		// UPDATE失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E009, "RCatfxSeiqkSQL::UpdateAutokakuteiflagOFF " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+}
+
+//***************************************************************************
+// 機能		:	UpdateAutokakuteiflag
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	請求管理テーブルの自動請求確定フラグを更新
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::UpdateAutokakuteiflag()
+{
+	this->ClearIn();
+
+	memcpy(szdbInAutokakuteiflag, (char*)RCatfxSeiqkDataIn->get_Autokakuteiflag().c_str(), sizeof(szdbInAutokakuteiflag) - 1);
+	memcpy(szdbInHcode, (char*)RCatfxSeiqkDataIn->get_Hcode().c_str(), sizeof(szdbInHcode) - 1);
+	idbInSosinkai = atoi((char*)RCatfxSeiqkDataIn->get_Sosinkai().c_str());
+
+	string strsql = "";
+
+	strsql.append(" UPDATE " );
+	strsql.append("  RE" + prt_strTenKbn + "HUSER" + prt_strKenCD + "." );
+	strsql.append("R" + prt_strTenKbn + "Seiqk" );
+	strsql.append("  SET AUTOKAKUTEIFLAG = :szdbInAutokakuteiflag " );
+	strsql.append("  WHERE " );
+	strsql.append("   HCODE =:szdbInHcode" );
+	strsql.append("   AND SOSINKAI = :idbInSosinkai" );
+
+	memset(szSQL, '\0', sizeof(szSQL));
+	memcpy(szSQL, (char*)strsql.c_str(), strsql.length());
+
+	EXEC SQL WHENEVER SQLERROR CONTINUE;
+	EXEC SQL WHENEVER SQLWARNING CONTINUE;
+	EXEC SQL WHENEVER NOT FOUND CONTINUE;
+
+	EXEC SQL PREPARE sql_stmt FROM :szSQL;
+	EXEC SQL EXECUTE sql_stmt using 
+							 :szdbInAutokakuteiflag
+							,:szdbInHcode
+							,:idbInSosinkai
+	;
+
+	if (0 != sqlca.sqlcode){
+		// UPDATE失敗
+		CREcomnDB::pvtSetErrInfo();
+		throw new RCatfxLogger(REKMSG_E009, "RCatfxSeiqkSQL::UpdateAutokakuteiflag " + getSqlErrMsg(sqlca.sqlcode) + " ", RECOMN_ERR_DB, __LINE__);
+	}
+}
+
+//***************************************************************************
+// 機能		:	ClearIn
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	バインド変数をクリアする
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::ClearIn()
+{
+	memset(szdbInHcode, '\0', sizeof(szdbInHcode));
+	idbInSosinkai = 0;
+	memset(szdbInSinnen, '\0', sizeof(szdbInSinnen));
+	idbInUkefilesu = 0;
+	memset(szdbInStatus, '\0', sizeof(szdbInStatus));
+	idbInSosinrecemaisu = 0;
+	memset(szdbInSosincdate, '\0', sizeof(szdbInSosincdate));
+	memset(szdbInSeiqkakuteikbn, '\0', sizeof(szdbInSeiqkakuteikbn));
+	memset(szdbInSeiqkakuteidate, '\0', sizeof(szdbInSeiqkakuteidate));
+	memset(szdbInTelno, '\0', sizeof(szdbInTelno));
+	memset(szdbInUpduserid, '\0', sizeof(szdbInUpduserid));
+	memset(szdbInSvrname, '\0', sizeof(szdbInSvrname));
+	memset(szdbInAspflg, '\0', sizeof(szdbInAspflg));
+	memset(szdbInYoteiedate, '\0', sizeof(szdbInYoteiedate));
+	memset(szdbInAspsdate, '\0', sizeof(szdbInAspsdate));
+	memset(szdbInAspcdate, '\0', sizeof(szdbInAspcdate));
+	memset(szdbInHendatastatus, '\0', sizeof(szdbInHendatastatus));
+	memset(szdbInJdaikocode, '\0', sizeof(szdbInJdaikocode));
+	idbInJdaikososinkai = 0;
+	memset(szdbInSaisinsahendatastatus, '\0', sizeof(szdbInSaisinsahendatastatus));
+	memset(szdbInAutokakuteiflag, '\0', sizeof(szdbInAutokakuteiflag));
+	memset(szdbInControlflag, '\0', sizeof(szdbInControlflag));
+}
+
+//***************************************************************************
+// 機能		:	ClearOut
+//																			
+// 返り値	:	
+//																			
+// 機能説明	:	バインド変数をクリアする
+//																			
+//***************************************************************************
+void	RCatfxSeiqkSQL::ClearOut()
+{
+	memset(szdbOutHcode, '\0', sizeof(szdbOutHcode));
+	idbOutSosinkai = 0;
+	memset(szdbOutSinnen, '\0', sizeof(szdbOutSinnen));
+	idbOutUkefilesu = 0;
+	memset(szdbOutStatus, '\0', sizeof(szdbOutStatus));
+	idbOutSosinrecemaisu = 0;
+	memset(szdbOutSosincdate, '\0', sizeof(szdbOutSosincdate));
+	memset(szdbOutSeiqkakuteikbn, '\0', sizeof(szdbOutSeiqkakuteikbn));
+	memset(szdbOutSeiqkakuteidate, '\0', sizeof(szdbOutSeiqkakuteidate));
+	memset(szdbOutTelno, '\0', sizeof(szdbOutTelno));
+	memset(szdbOutUpduserid, '\0', sizeof(szdbOutUpduserid));
+	memset(szdbOutSvrname, '\0', sizeof(szdbOutSvrname));
+	memset(szdbOutAspflg, '\0', sizeof(szdbOutAspflg));
+	memset(szdbOutYoteiedate, '\0', sizeof(szdbOutYoteiedate));
+	memset(szdbOutAspsdate, '\0', sizeof(szdbOutAspsdate));
+	memset(szdbOutAspcdate, '\0', sizeof(szdbOutAspcdate));
+	memset(szdbOutHendatastatus, '\0', sizeof(szdbOutHendatastatus));
+	memset(szdbOutJdaikocode, '\0', sizeof(szdbOutJdaikocode));
+	idbOutJdaikososinkai = 0;
+	memset(szdbOutSaisinsahendatastatus, '\0', sizeof(szdbOutSaisinsahendatastatus));
+	memset(szdbOutAutokakuteiflag, '\0', sizeof(szdbOutAutokakuteiflag));
+	memset(szdbOutControlflag, '\0', sizeof(szdbOutControlflag));
+}
+
+//***************************************************************************
+// 機能		:	SQLエラーメッセージ取得										
+//																			
+// 返り値	:																
+//																			
+// 引数		:																
+//																			
+// 機能説明	:	SQLエラーメッセージを取得する								
+//																			
+// 備考		:																
+//																			
+//***************************************************************************
+const	string	RCatfxSeiqkSQL::getSqlErrMsg(int iRet)
+{
+	
+	string strSqlErrMsg = "";
+
+	stringstream strSqlErrCode;
+	string strSqlErrDetail = "";
+
+	if (RECOMN_SUCCESS != iRet){
+
+		strSqlErrCode << "[SQLコード] " << CREcomnInfo::s_lDBCode;
+		strSqlErrDetail = string(CREcomnInfo::s_pszDBMsg);
+		strSqlErrMsg = strSqlErrCode.str() + " [SQLメッセージ] " + strSqlErrDetail;
+	}
+
+	return strSqlErrMsg;
+}
