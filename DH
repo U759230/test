@@ -1,0 +1,43 @@
+# DPC本番ファイル初期化情報（DB）
+
+# /dfDH/zogn以下を削除
+/sect**/data/dfDH/zogn
+
+#/* ::: 2008.7.1 [CSU03012]返戻再請求処理開発 Add Start K.Ikeda ::: */
+# /dfDH/rref以下を削除
+/sect**/data/dfDH/rref
+# /dfDH/henr以下を削除
+/sect**/data/dfDH/henr
+#/* ::: 2008.7.1 [CSU03012]返戻再請求処理開発 Add End   K.Ikeda ::: */
+
+#/* ::: 2007.06.11 [CSU02029]オンライン2次開発：請求確定情報ファイル追加 ADD Start S.Tsukihashi ::: */
+/sect**/data/dfDH/fixf
+#/sect**/temp/fixf/dfDH 取下げ
+#/* ::: 2007.06.11 [CSU02029]オンライン2次開発：請求確定情報ファイル追加 ADD END S.Tsukihashi ::: */
+
+#/* ::: 2011.10.24 [VREINS後-00120] 返戻情報レセ電反映関連ファイル削除対応 Add Start TOMOYUKI.ARIGA ::: */
+/sect**/data/dfDH/lhjr
+#/* ::: 2011.10.24 [VREINS後-00120] 返戻情報レセ電反映関連ファイル削除対応 Add End   TOMOYUKI.ARIGA ::: */
+#/* ::: 2020.09.16 [CON210002] R3.09月案件 オンライン資格確認導入に伴う改修 Add Start WANG.Y.F ::: */
+# /dfDH/skkg以下を削除
+/sect**/data/dfDH/skkg
+# /dfDH/osfb以下を削除
+/sect**/data/dfDH/osfb
+#/* ::: 2020.09.16 [CON210002] R3.09月案件 オンライン資格確認導入に伴う改修 Add End   WANG.Y.F ::: */
+
+
+#/* ::: 2022.11.21 [CSU04695] レセプトオンライン配信の促進対応 Add Start HIROSUKE TAMIYA ::: */
+#/dfDH/tskrR以下を削除
+/sect**/data/dfDH/tskrR
+#/dfDH/tskrM以下を削除
+/sect**/data/dfDH/tskrM
+#/* ::: 2022.11.21 [CSU04695] レセプトオンライン配信の促進対応 Add End HIROSUKE TAMIYA ::: */
+
+# ::: 2023.08.08 [CON230001] R6.04月案件 共通帳票管理システム機器更改に伴う改修 Add Start Daichi.Watanabe
+/sect**/data/dfDH/zogp
+# ::: 2023.08.08 [CON230001] R6.04月案件 共通帳票管理システム機器更改に伴う改修 Add End   Daichi.Watanabe
+
+# ::: 2026.07.15 [CON280001] R8.10月案件 請求支援機能の開発に伴うオンライン請求システムの改修 Add Start RYOUEI.KOU
+#請求支援機能関連格納ディレクトリ
+/sect**/temp/seisien/dfDH
+# ::: 2026.07.15 [CON280001] R8.10月案件 請求支援機能の開発に伴うオンライン請求システムの改修 Add End   RYOUEI.KOU
