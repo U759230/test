@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="Windows-31J" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org/DTD Mapper 3.0//EN"
+    "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="sqlmapper.RCecrlRepository"> 
+    <select id="query_RCecrlSQL001_sql_0" resultType="java.util.HashMap"> <![CDATA[ SELECT A.SOSINKAI, A.KACODE, A.UKEKAI, C.KAKUTEIKAI, C.NYURECEKENSU, C.NYUINGAIRECEKENSU, A.RECENO, A.KARTENO, A.KANJYANAME, A.BIRTHDAY, A.ERRPOINT1, A.ERRPOINT2, A.ERRPOINT3, A.SINNEN, A.STATUS FROM ${ST01}.R${ST02}ERRRECEK A, ${ST01}.R${ST02}CORSEIQK B, ${ST01}.R${ST02}SEIQM C WHERE A.HCODE = #{1} AND (A.STATUS = '00' OR A.STATUS = '10' OR A.STATUS = '99') AND A.RECETUBAN = '00' AND A.HCODE = B.HCODE AND A.SOSINKAI = B.SOSINKAI AND (B.STATUS = '01' OR B.STATUS = '02' OR B.STATUS = '99') AND A.HCODE = C.HCODE AND A.SOSINKAI = C.SOSINKAI AND A.KACODE = C.KACODE AND A.UKEKAI = C.UKEKAI AND NOT EXISTS (SELECT 1 FROM ${ST01}.R${ST02}SEIQK D WHERE D.HCODE = A.HCODE AND D.SOSINKAI = A.SOSINKAI AND D.UPDUSERID LIKE 'SeiSien%')ORDER BY DECODE(A.STATUS,'99','1','0'), A.SOSINKAI, A.KACODE, A.UKEKAI, A.RECENO ]]> </select>
+    <select id="query_RCecrlSQL003_sql_0" resultType="java.util.HashMap"> <![CDATA[ SELECT SEIQKAKUTEIDATE, ASPFLG FROM ${ST01}.R${ST02}SEIQK WHERE HCODE = #{1} AND SOSINKAI = #{2} ]]> </select>
+    <select id="query_RCecrlSQL004_sql_0" resultType="java.util.HashMap"> <![CDATA[ SELECT SUM(DECODE(STATUS,'10',1,0)) AS TEISEIZUMI_COUNT, SUM(DECODE(STATUS,'00',1,0)) AS MITEISEI_COUNT, SUM(DECODE(STATUS,'99',1,0)) AS TEISEIFUNO_COUNT FROM ${ST01}.R${ST02}ERRRECEK WHERE HCODE = #{1} AND SOSINKAI = #{2} ]]> </select>
+    <select id="query_RCecrlSQL005_sql_0" resultType="java.util.HashMap"> <![CDATA[ SELECT IRYOKIKAN_NAME_KNJ AS NAME FROM RCIRYOMST WHERE HCODE = #{1} ]]> </select>
+    <select id="query_RCecrlSQL005_sql_1" resultType="java.util.HashMap"> <![CDATA[ SELECT NAME AS NAME FROM RCUSER WHERE USERID = #{1} ]]> </select>
+    <select id="query_RCecrlSQL006_sql_0" resultType="java.util.HashMap"> <![CDATA[ SELECT COUNT(HCODE) AS SAIUKETUKE_FLG FROM ${ST01}.R${ST02}CORSEIQK WHERE HCODE = #{1} AND TEISEISOSINKAI = #{2} ]]> </select>
+</mapper>
